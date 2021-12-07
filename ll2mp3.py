@@ -3,10 +3,11 @@ from collections import namedtuple
 import re
 
 HEADER_REGEX = r'(PERFORMER) \"?([^\"]*)\"?.*|(TITLE) \"?([^\"]*)\"?.*'
-TRACK_REGEX = r'(PERFORMER) \"?([^\"]*)\"?.*|(TITLE) \"?([^\"]*)\"?.*'
+TRACK_REGEX_TITLE = r'.*?(TRACK\s+(\d+).*?TITLE\s+\"?([^\"+]+)\"?.*?)'
+TRACK_REGEX_PERFORMER = r'.*?(TRACK\s+(\d+).*?PERFORMER\s+\"?([^\"+]+)\"?.*?)'
 
-Header = namedtuple('Header', ['performer', 'title', 'file', 'tracks'])
-Track =namedtuple('Track', ['performer', 'title'])
+CueSheet = namedtuple('CueSheet', ['performer', 'title', 'file', 'tracks'])
+Track = namedtuple('Track', ['title', 'number'])
 
 
 def parse_cue_file(path):
@@ -26,8 +27,11 @@ def parse_cue_file(path):
                 attr, val, *_ = words
                 attr = attr.lower()
                 d[attr] = val
-
-
+    tracks = [Track(x[2], x[1]) for x in re.findall(TRACK_REGEX_TITLE, t, re.DOTALL)]
+    d['tracks'] = tracks
+    #tracks = re.findall(TRACK_REGEX_PERFORMER, t, re.DOTALL)
+    cuesheet = CueSheet(**d)
+    return cuesheet
 
 
 def find_cue_file(dir_name):

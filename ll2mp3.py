@@ -1,8 +1,10 @@
 import pathlib
+import sys
 from collections import namedtuple
 import re
 import os
 import eyed3
+from chardet.universaldetector import UniversalDetector
 
 HEADER_REGEX = r'(PERFORMER) \"?([^\"]*)\"?.*|(TITLE) \"?([^\"]*)\"?.*'
 TRACK_REGEX_TITLE = r'.*?(TRACK\s+(\d+).*?TITLE\s+\"?([^\"+]+)\"?.*?)'
@@ -12,10 +14,22 @@ CueSheet = namedtuple('CueSheet', ['performer', 'title', 'file', 'tracks'])
 Track = namedtuple('Track', ['title', 'number'])
 
 
+def detect_encoding(bytes):
+    detector = UniversalDetector()
+    detector.feed(bytes)
+    detector.close()
+    return detector.result
+
+
 def parse_cue_file(path):
     d = {}
-    with open(path.resolve(), "r") as f:
+    with open(path.resolve(), "rb") as f:
+        bytes = f.read()
+        result = detect_encoding(bytes)
+
+    with open(path.resolve(), "r", encoding=result["encoding"]) as f:
         text = f.read()
+
     file = re.findall(r'FILE \"?([^\"]*)\"? .*\n', text)
     file, *_ = file
     d['file'] = pathlib.Path(path.parent, file)
@@ -43,6 +57,7 @@ def find_cue_file(dir_name):
 
 def convert(cue_file, cuesheet):
     audio_file = cuesheet.file.resolve()
+    os.chdir(cuesheet.file.parent.resolve())
     cmd = f'cuebreakpoints "{cue_file}" | sed s/$/0/ | shnsplit -O always -o flac "{audio_file}"'
     ret_code = os.system(cmd)
     if ret_code != 0:
@@ -51,7 +66,7 @@ def convert(cue_file, cuesheet):
         os.system(cmd)
 
     convert_files(cuesheet)
-    delete_old_files(cuesheet)
+    ##delete_old_files(cuesheet)
 
 def delete_old_files(cuesheet):
     pd = cuesheet.file.parent.resolve()
@@ -80,6 +95,19 @@ def convert_files(cuesheet):
         mp3_file.tag.artist = cuesheet.performer
         mp3_file.tag.title = track.title
         mp3_file.tag.save(dst)
+
+def convert_to_mp3(path):
+    cuepath = find_cue_file(path.resolve())
+    cue_file = parse_cue_file(cuepath)
+    convert(cuepath.resolve(), cue_file)
+
+
+if __name__ == '__main__':
+    if len(sys.argv) == 2:
+        p = pathlib.Path(sys.argv[1]).resolve()
+        convert_to_mp3(p)
+
+
 
 
 

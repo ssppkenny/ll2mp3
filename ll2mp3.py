@@ -50,7 +50,16 @@ def convert(cue_file, cuesheet):
         cmd = f'cuebreakpoints "{cue_file}" | sed s/$/0/ | shnsplit -O always -o flac "{audio_file}.flac"'
         os.system(cmd)
 
-    rename_files(cuesheet)
+    convert_files(cuesheet)
+    delete_old_files(cuesheet)
+
+def delete_old_files(cuesheet):
+    pd = cuesheet.file.parent.resolve()
+    cmd = f'rm -rf {pd}/*.flac'
+    os.system(cmd)
+    cmd = f'rm -rf {pd}/*.wav'
+    os.system(cmd)
+
 
 def convert_to_wav_and_back(audio_file):
     cmd = f'ffmpeg -y -i "{audio_file}" "{audio_file}.wav"'
@@ -58,7 +67,7 @@ def convert_to_wav_and_back(audio_file):
     cmd = f'ffmpeg -y -i "{audio_file}.wav" "{audio_file}.flac"'
     os.system(cmd)
 
-def rename_files(cuesheet):
+def convert_files(cuesheet):
     pd = cuesheet.file.parent.resolve()
     for track in cuesheet.tracks:
         src = f"split-track{track.number}.flac"
